@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react'
 
-import { useLazyQuery } from '@apollo/client'
-import { ALL_BOOKS } from '../queries'
+import { useLazyQuery, useSubscription } from '@apollo/client'
+import { ALL_BOOKS, BOOK_ADDED } from '../queries'
+import { nameSort } from '../helper'
 
 const Books = (props) => {
   const [books, setBooks] = useState([])
   const [genresFilter, setGenresFilter] = useState([])
   const [getBooks, result] = useLazyQuery(ALL_BOOKS)
   
+ 
   useEffect(() => {
     if(genresFilter.length > 0) {
       getBooks({ variables: { genres: genresFilter }})
@@ -19,11 +21,20 @@ const Books = (props) => {
 
   useEffect(() => {
     if(result.data) {
-      const gotBooks = result.data.allBooks
+      let gotBooks = [...result.data.allBooks]
+      gotBooks.sort((b1, b2) => nameSort(b1.title, b2.title))
       setBooks(gotBooks)
       //console.log("Books:", gotBooks)
     }
   }, [result])
+
+  useSubscription(BOOK_ADDED, {
+    onSubscriptionData: ({ subscriptionData }) => {
+      //console.log('use sub: book added:', subscriptionData)
+      const addedBook = subscriptionData.data.bookAdded
+      props.updateCacheWith(addedBook)
+    }
+  })
 
   const onFilter = (genre) => {
     if(genresFilter.includes(genre)) {
@@ -58,14 +69,13 @@ const Books = (props) => {
     }
 
     return (
-      <button key={genre} style={style} onClick={() => onFilter(genre)}>{genre}</button>
-        
+      <button key={genre} style={style} onClick={() => onFilter(genre)}>{genre}</button>  
     )
   } 
 
   return (
     <div>
-      <h2>books</h2>
+      <h2>Books</h2>
 
       <table>
         <tbody>

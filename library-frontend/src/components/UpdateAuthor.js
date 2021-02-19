@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import { useMutation } from '@apollo/client'
 
@@ -15,10 +15,15 @@ const UpdateAuthor = ({authors}) => {
     { refetchQueries: [{ query: ALL_AUTHORS }]}
   )
   
+  useEffect(() => {
+    if(authors.length > 0) {
+      setSelectedAuthor(authors[0].name)
+    }
+  }, [authors])
+
   const submit = async (event) => {
     event.preventDefault()
-    console.log("Event:", event.target)
-
+    
     let author = selectedAuthor
 
     if(!author && authors.length) {

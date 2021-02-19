@@ -1,4 +1,4 @@
-const { UserInputError, AuthenticationError } = require('apollo-server')
+const { UserInputError, AuthenticationError, PubSub } = require('apollo-server')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt')
 
@@ -8,6 +8,7 @@ const User = require('./models/user')
 const config = require('./config')
 
 const testData = require('./testdata')
+const pubsub = new PubSub()
 
 const authorFilter = async (name) => {
 
@@ -16,11 +17,12 @@ const authorFilter = async (name) => {
     filter = { name: name }
   }
 
-  let authors = await Author.find(filter, {}, {lean: true})
-  return Promise.all(authors.map(async x => {
-    const bookCount = await Book.collection.countDocuments({ author: x._id})
+  const authors = await Author.find(filter, {}, {lean: true})
+  return authors.map(x => ({ ...x, id: x._id }))
+  /*return Promise.all(authors.map(async x => {
+    const bookCount = await Book.collection.countDocuments({ author: x._id })
     return { ...x, id: x._id, bookCount }
-  }))
+  }))*/
 } 
 
 const booksFilter = async (author, genres) => {
@@ -47,14 +49,27 @@ const booksFilter = async (author, genres) => {
 
 const resolvers = {
   Mutation: {
-    addTestAuthors: async () => {
-      await Author.deleteMany()
-      await Author.insertMany(testData.authors)
-      return Author.find({})
-    },
     addTestBooks: async () => {
-      await Book.deleteMany({})
       const initialBooks = testData.books
+      let initialAuthors = testData.authors
+
+      const countBooks = (author) => 
+        initialBooks.reduce((acc, cur) => {
+          const val = cur.author === author.name ? acc + 1: acc
+          console.log("Acc ", acc, " cur ", cur, " val ", val)
+          return val
+        }, 0)
+      
+      initialAuthors.forEach(author => {
+        const bookCount = countBooks(author)
+        console.log("Bookcount: ", bookCount)
+        author.bookCount = bookCount
+      })
+
+      await Author.deleteMany() 
+      await Author.insertMany(initialAuthors)
+      
+      await Book.deleteMany({})
       const booksToAdd = await Promise.all(initialBooks.map(async x => 
         {
           const author = await Author.findOne({ name: x.author })
@@ -62,7 +77,7 @@ const resolvers = {
           return {...x, author: author._id}
         }))
       
-      console.log('Books to add ', booksToAdd)
+      //console.log('Books to add ', booksToAdd)
       await Book.insertMany(booksToAdd)
       return Book.find({}).populate('author')
     },
@@ -73,21 +88,25 @@ const resolvers = {
       }
 
       let author = await Author.findOne({name: args.author})
-       if(!author) {
-          const authorToSave = new Author({ name: args.author })
-          try {
-            author = await authorToSave.save()
-          } catch (error) {
-            throw new UserInputError(error.message, {
-              invalidArgs: args,
-            })
-          }
-       }
+      if(!author) {
+        const authorToSave = new Author({ name: args.author, bookCount: 0 })
+        try {
+          author = await authorToSave.save()
+        } catch (error) {
+          throw new UserInputError(error.message, {
+            invalidArgs: args,
+          })
+        }
+      }
       const book = new Book({ ...args, author: author._id })
 
       try {
         const savedBook = await book.save()
+        author.bookCount = author.bookCount + 1
+        await author.save()
         await savedBook.populate('author').execPopulate()
+        pubsub.publish('BOOK_ADDED', { bookAdded: book })
+
         return savedBook
       } catch (error) {
         throw new UserInputError(error.message,  {
@@ -162,20 +181,19 @@ const resolvers = {
     bookCount: () =>  Book.collection.countDocuments(),//books.length,
     authorCount: () => Author.collection.countDocuments(), //authors.length,
     allBooks: async (root, args) => booksFilter(args.author, args.genres),
-    allAuthors: async (root, args) => {
-      const li = await authorFilter(args.name)
-      //console.log("List: ", li)
-      return li
-    },
+    allAuthors: async (root, args) => authorFilter(args.name),
     allGenres: async () => {
       const bookGenres = (await Book.find({}, { genres: 1}))
 
       const genres =  [...new Set(bookGenres.map(x => x.genres).flat())]
       return { names: genres }
-      //return genres.map(x => { return({ name: x }) })
     } 
-   
-  }
+  },
+  Subscription: {
+    bookAdded: {
+      subscribe: () => pubsub.asyncIterator(['BOOK_ADDED'])
+    },
+  },
 }
 
 module.exports = resolvers 

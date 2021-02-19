@@ -16,7 +16,7 @@ const Recommendation = (props) => {
     if(result.data) {
       const gotBooks = result.data.allBooks
       setBooks(gotBooks)
-      console.log("Books:", gotBooks)
+      //console.log("Books:", gotBooks)
     }
   }, [result])
 

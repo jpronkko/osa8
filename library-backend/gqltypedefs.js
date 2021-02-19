@@ -36,7 +36,6 @@ const typeDefs = gql`
   }
 
   type Mutation {
-    addTestAuthors: [Author]
     addTestBooks: [Book]  
     addBook(
       title: String!
@@ -66,6 +65,10 @@ const typeDefs = gql`
     allAuthors(name: String): [Author!]!
     allGenres: Genre!
     me: User
+  }
+
+  type Subscription {
+    bookAdded: Book!
   }
 `
  

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useLazyQuery } from '@apollo/client'
 import { ALL_AUTHORS } from '../queries'
 import UpdateAuthor from './UpdateAuthor'
+import { nameSort } from '../helper'
 
 const Authors = (props) => {
   const [authors, setAuthors] = useState([])
@@ -15,8 +16,10 @@ const Authors = (props) => {
 
   useEffect(() => {
     if (result.data) {
-      console.log("All", result.data)
-      setAuthors(result.data.allAuthors)
+      let gotAuthors = [...result.data.allAuthors]
+      gotAuthors.sort((a1, a2) => nameSort(a1.name, a2.name))
+      console.log("Got authors:", gotAuthors)
+      setAuthors(gotAuthors)
     }
   }, [result])
 
@@ -32,7 +35,7 @@ const Authors = (props) => {
   
   return (
     <div>
-      <h2>authors</h2>
+      <h2>Authors</h2>
       <table>
         <tbody>
           <tr>

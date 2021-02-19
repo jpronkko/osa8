@@ -54,8 +54,8 @@ const LoginForm = ({ errorMessage, setToken, setFavoriteGenre, genres }) => {
 
   useEffect(() => {
     if( newUserResult.data ) {
-      console.log("New user:", newUserResult.data, "newuser: ", newUsername, " newP ", newPassword)
-      console.log("Login in the new user: ", newUsername)
+      //console.log("New user:", newUserResult.data, "newuser: ", newUsername, " newP ", newPassword)
+      //console.log("Login in the new user: ", newUsername)
       login({ variables: { username: newUsername, password: newPassword }})
     }
   }, [newUserResult.data, login, newUsername, newPassword])
@@ -111,7 +111,7 @@ const LoginForm = ({ errorMessage, setToken, setFavoriteGenre, genres }) => {
               value={newPassword}
               onChange={({ target }) => setNewPassword(target.value)}
               />
-              favorite genre
+            favorite genre
               <select value={selectedGenre} onChange={handleSelectGenre}>
                 {genres.map(genre => <option key={genre} value={genre}>{genre}</option>)}
               </select>
